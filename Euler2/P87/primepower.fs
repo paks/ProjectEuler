@@ -9,44 +9,32 @@
 ///
 ///How many numbers below fifty million can be expressed as the sum of a prime square, prime 
 ///cube, and prime fourth power?
-#light
-
-// open some standard namespaces
+//-----------------------------------------------------------------------
+// <copyright file="primepower.fs" >
+// Copyright Î÷Î÷ Cesar Mendoza. All rights reserved.
+// </copyright>
+//-----------------------------------------------------------------------
 open System
 open System.Collections.Generic
+open Euler2
 
-let primes limit =
-    [|
-        // First prime
-        yield 2
-        
-        let knownComposites = new HashSet<int>()
+let limit = 50000000UL
 
-        // Loop through all odd numbers; evens can't be prime
-        for i in 3 .. 2 .. limit do
-        
-            // Check if its in our list, if not, its prime
-            let found = knownComposites.Contains(i)
-            if not found then
-                yield i
-            // Add all multiples of i to our sieve, starting
-            // at i and irecementing by i.
-            do for j in i .. i .. limit do
-                knownComposites.Add(j) |> ignore
-            
-   |]
-printfn "done with primes"
-let limit = 50000000
+let primes1 = primes |> Seq.takeWhile(fun p -> p <  7072UL) |> Seq.toList // limit^(1/2)
+let primes2 = primes1 |> Seq.takeWhile(fun p -> p < 369UL) |> Seq.toList // limit^(1/3)
+let primes3 = primes1 |> Seq.takeWhile(fun p -> p < 84UL) |> Seq.toList // limit^(1/4)
 
 let solution = 
     let table = new HashSet<_>()
-    for a in primes 7072 do // limit^(1/4)
-        for b in primes 369 do // limit^(1/3)
-            for c in primes 84 do // limit^(1/2)
+    for a in primes1 do 
+        for b in primes2 do 
+            for c in primes3 do
                 let num = (a*a) + (b*b*b) + (c*c*c*c)
                 if  num < limit && not (table.Contains(num)) then
                     table.Add(num) |> ignore
     table.Count
                     
 solution |> printfn "solution: %d"
+
 Console.ReadKey(true) |> ignore
+
