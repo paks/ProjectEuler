@@ -30,7 +30,7 @@ let solution =
         for b in primes2 do 
             for c in primes3 do
                 let num = (a*a) + (b*b*b) + (c*c*c*c)
-                if  num < limit && not (table.Contains(num)) then
+                if  num < limit then
                     table.Add(num) |> ignore
     table.Count
                     
