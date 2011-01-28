@@ -1,8 +1,8 @@
 ///Project Euler http://projecteuler.net
-///Solutions to problems 51 to 50
+///Solutions to problems 51 to 100
 //-----------------------------------------------------------------------
 // <copyright file="euler2.fs" >
-// Copyright © Cesar Mendoza. All rights reserved.
+// Copyright Cesar Mendoza. All rights reserved.
 // </copyright>
 //-----------------------------------------------------------------------
 module Euler2
@@ -11,7 +11,13 @@ open System.Collections.Generic
 open System.Numerics
 open Primegen
 
-let version = "1.0.0.0"
+let version = "1.0.0.1"
+
+// Some useful Haskell functions
+let uncurry f (a,b) = f a b
+let curry f a b = f(a,b)
+let flip f a b = f b a 
+let iterate f = Seq.unfold(fun x -> let fx = f x in Some(x,fx))
 
 let primes = 
     seq {
@@ -52,49 +58,31 @@ let mulMod (a :bigint) b c = (b * c) % a
 let squareMod (a :bigint) b = (b * b) % a
 let powMod m = pow' (mulMod m) (squareMod m)
 
-let private millerRabinPrimality (n :bigint) a =
+let private millerRabinPrimality n a =
     let n' = n - 1I
     let (k,m) = find2km n'
     let b0 = powMod n a m
-    let iterate f x = (x,0) |> Seq.unfold(fun (x',_) -> let fx = f x'
-                                                        Some(fx,(fx,0)))
-    let b = iterate (squareMod n) b0 |> Seq.take (int (k - 1I)) |> Seq.toList
-    let rec iter l = 
-        match l with
-            | [] -> false
-            | (x::xs) -> match x with
-                            | _ when x = 1I -> false
-                            | _ when x = n' -> true
-                            | _      -> iter xs
+    let probe = Seq.truncate(int (k-1I)) >> Seq.tryPick(fun x -> if x = 1I then Some(false) elif x = n' then Some(true) else None)
+            
     match (a,n) with
-        | _ when a <= 1I && a >= n - 1I -> failwith (sprintf "millerRabinPrimality: a out of range (%A for %A)" a n)
-        | _ when n < 2I -> false
-        | _ when n % 2I = 0I -> false
+        | _ when a <= 1I && a >= n' -> failwith (sprintf "millerRabinPrimality: a out of range (%A for %A)" a n)
         | _ when b0 = 1I || b0 = n' -> true
-        | _  -> iter b
+        | _  -> b0 
+                 |> iterate (squareMod n) 
+                 |> Seq.skip 1 
+                 |> probe 
+                 |> Option.exists id 
+                
 
-let public isPrime = function
+let isPrimeW witnesses = function
     | n when n < 2I -> false
     | n when n = 2I -> true
     | n when n = 3I -> true
     | n when n % 2I = 0I -> false
-    | n when n = 3I -> true
-    | n             -> let result = millerRabinPrimality n 2I 
-                       if result then
-                            millerRabinPrimality n 3I
-                       else
-                            false
-(*
-let memoizeM f =
-    let cache = ref Map.empty
-    fun x ->
-        match (!cache).TryFind(x) with
-        | Some res -> res
-        | None     ->
-                    let res = f x
-                    cache := (!cache).Add(x,res)
-                    res
-*)
+    | n             -> witnesses |> Seq.forall(millerRabinPrimality n)
+
+let isPrime = isPrimeW [2I;3I]
+
 let memoize f =
     let cache = Dictionary<_, _>()
     fun x ->
@@ -104,28 +92,45 @@ let memoize f =
              cache.[x] <- res
              res
 
-let rec permutations =function 
-            | [] -> [[]]
-            | xs -> let r = new List<'a list>()
-                    let h = new List<'a>()
-                    for x in xs do
-                        if not (h.Contains(x)) then
-                            let ts = xs |> List.filter(fun a -> a <> x)
-                            for p in permutations(ts) do
-                                r.Add(x::p) |> ignore
-                        h.Add(x) |> ignore
-                    r |> Seq.toList
+//These functions came form the Book "Introduction to Functional Programming" by Richard Bird and Philip Wadler.
+    
+let rec subs = function
+    | [] -> [[]]
+    | x::xs -> [ for ys in subs xs do
+                    yield! [ys;x::ys] ]
+
+let rec interleave x = function
+    | [] -> [[x]]
+    | y::ys -> 
+        [ yield x::y::ys
+          yield! interleave x ys |> List.map (curry List.Cons y)]
+
+let rec perms = function
+    | [] -> [[]]
+    | x::xs -> List.concat (List.map (interleave x) (perms xs))
+
+let choices xs = List.concat (List.map perms (subs xs))
+    
+let rec parts = function
+    | []    -> [[]]
+    | [x]   -> [[[x]]]
+    | x::x'::xs -> List.map (glue x) (parts (x'::xs)) 
+                    @ List.map (curry List.Cons [x]) (parts (x'::xs))
+
+and glue x xss = (x :: List.head xss):: List.tail xss
+
+//
+let internal fact a b = [a .. b] |> Seq.fold(( * )) 1I
+
+let binomial n r =
+    (fact (r+1I) n) / (fact 1I (n - r))
+
+let permu n r = (fact (n-r+1I) n)
 
 let combinations list (r: int) =
-    let rec factorial = function
-        | n when n = 0I -> 1I
-        | n -> n * factorial (n-1I)
-    let d = list |> List.toArray
-    let ri = bigint r
-    let ni = bigint(list.Length)
-    let total = (factorial ni) / ((factorial ri) * (factorial (ni - ri))) |> int
-    let n = int ni
-    let r = int ri
+    let d = list |> Seq.toArray
+    let n = d.Length
+    let total = (bigint n, bigint r) ||> binomial |> int
     let builder (d :array<_>) a =
         let rec builder' a acc =
             match a with
@@ -133,8 +138,8 @@ let combinations list (r: int) =
                 | n::ns -> let acc' = d.[n] :: acc
                            builder' ns acc'
         builder' a [] |> List.rev
-    let a = [|0..r-1|];
     seq {
+        let a = [|0..r-1|];
         yield d.[0..r-1] |> List.ofArray
         for x in 1 .. total-1 do
             let i = ref (r - 1)
@@ -177,7 +182,4 @@ let rec factorial = function
     | n when n = 0I -> 1I
     | n -> n * factorial (n-1I)
     
-// Some useful Haskell functions
-let uncurry f (a,b) = f a b
-let curry f a b = f(a,b)
-let flip f a b = f b a 
+
