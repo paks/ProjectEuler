@@ -26,8 +26,7 @@ let last = (1,3)
 let mediant (a,b) (c,d) = (a+c,b+d) 
         
 let rec farey f l order = 
-    let m = mediant f l
-    let (p,q) = m
+    let (_,q) as m = mediant f l
     if q > order then
         0
     else
