@@ -11,9 +11,7 @@
 // </copyright>
 //-----------------------------------------------------------------------
 open System
-open System.Collections.Generic
 open Euler
-
 
 #nowarn "40"  
 let rec fib = memoize(function
@@ -29,7 +27,7 @@ let fibs =
         }
     fb 2
 
-let solution = fibs |> Seq.takeWhile((>=) 4000000 ) |> Seq.fold (fun acc n -> if n % 2 = 0 then acc+n else acc) 0 
+let solution = fibs |> Seq.takeWhile((>=) 4000000 ) |> Seq.filter(fun fib -> fib % 2 = 0) |> Seq.sum
 solution |> printfn "solution: %d"
 
 Console.ReadKey(true) |> ignore
